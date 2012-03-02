@@ -7,10 +7,18 @@ module Guard
   
     VERSION = '0.1.0'
     
+    def default_builder_actions
+      [ :build ]
+    end
+    
+    def default_paths
+      [ '.' ]
+    end
+    
     def initialize(watchers=[], options = {})
       @options = {
-        :actions => [ :build ],
-        :paths => [ '.' ],
+        :actions => default_builder_actions,
+        :paths => default_paths,
       }.update(options)
  
       @paths = @options[:paths]
@@ -56,8 +64,6 @@ module Guard
       
     end
 
-    private
-
     def projects
       @project ||= begin
         # TODO: projects found multiple times will be duplicated.
@@ -78,8 +84,6 @@ module Guard
         
         matching_projects.map do |project|
           project.targets.map do |target|
-            
-            source_file_builder = target.config('Debug').builder
             
             build_action = lambda { "#{project.name}//#{target.name}//Debug" }
             
