@@ -5,6 +5,20 @@
 #       instance of the Builder object for the matching file. This
 #       is generally actions like :clean, :build, and :package
 # 
+#
+#  guard-xcoder defines watchers differently as individual files
+#    identified instead the path to the particular project target
+#    that you want built.
 guard 'xcoder', :actions => [ :clean, :build ] do
+  #
+  # builds when any source file within the 'ProjectName' project changes
+  # for any target
   watch('ProjectName')
+  
+  #
+  # builds when any source file within the project 'Project2' target named
+  # 'FirstTarget' has changed.
+  #
+  watch('Project2//FirstTarget')
+
 end
