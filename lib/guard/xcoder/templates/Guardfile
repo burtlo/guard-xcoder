@@ -1,0 +1,10 @@
+#
+#  guard-xcoder accepts the following parameters:
+# 
+#     actions => a list of actions that you want to take with the
+#       instance of the Builder object for the matching file. This
+#       is generally actions like :clean, :build, and :package
+# 
+guard 'xcoder', :actions => [ :clean, :build ] do
+  watch('ProjectName')
+end
