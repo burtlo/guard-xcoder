@@ -22,7 +22,6 @@ module Guard
       }.update(options)
  
       @paths = @options[:paths]
-      
       file_watchers = file_watchers_for_project_watchers watchers
       watchers.replace file_watchers
       
@@ -80,29 +79,62 @@ module Guard
     def file_watchers_for_project_watchers(watchers)
 
       watchers.map do |watcher|
-        matching_projects = projects.find_all {|project| project.name == watcher.pattern }
-        
-        matching_projects.map do |project|
-          project.targets.map do |target|
-            
-            build_action = lambda { "#{project.name}//#{target.name}//Debug" }
-            
-            target.sources_build_phase.build_files.map do |file|
-              project_root_dir = File.join File.dirname(project.path), project.name
-              source_file_path = File.join(project_root_dir,file.path).gsub("#{::Guard.listener.directory}/",'')
-              
-              puts "Building watcher for file: #{source_file_path}"
-              
-              watcher = ::Guard::Watcher.new(source_file_path,build_action)
-              watcher
+        watchers_for_source_files_in watcher.pattern
+      end.flatten.compact
 
-            end
-          end
-        end.flatten.compact.uniq
+    end
+    
+    def watchers_for_source_files_in pattern
+      
+      targets_in_path(pattern).map do |target|
         
-      end.flatten
+        build_action = lambda { "#{target.project.name}//#{target.name}//Debug" }
+        
+        project_root_dir = File.join File.dirname(target.project.path), target.name
+        
+        # Create a watcher for all source build files specified within the target
+        
+        new_guards = target.sources_build_phase.build_files.map do |file|
+          full_source_path = File.join(project_root_dir,file.path)
+          #puts "Source Path: #{full_source_path}"
+          create_guard_for full_source_path, build_action
+        end
+        
+        # Create a watcher for the pch if one has been specified.
+        if target.config('Debug').prefix_header
+          prefix_header_path = File.join File.dirname(target.project.path), target.config('Debug').prefix_header
+          #puts prefix_header_path
+          new_guards << create_guard_for(prefix_header_path)
+        end
+
+        new_guards
+        
+      end.flatten.compact
+      
+    end
+
+    def targets_in_path(pattern)
+
+      project_name, target_name, config_name = pattern.split("//")
+      projects.find_all {|project| project.name == project_name }.map do |project|
+        if target_name
+          project.targets.find_all {|target| target.name == target_name }
+        else
+          project.targets
+        end
+      end.flatten.compact
 
     end
 
+    def create_guard_for full_source_path, command
+      relative_source_path = full_source_path.gsub("#{::Guard.listener.directory}/",'')
+
+      # Given a file that is meant for the sources build phase, it
+      # is likely that the file has an accompanying header file so
+      # we expand the pattern to include that.
+      
+      source_regex = Regexp.new( Regexp.escape(relative_source_path).to_s.gsub(/(?:m?m)$/,'(?:m?m|h)') )
+      ::Guard::Watcher.new source_regex, command
+    end
   end
 end
