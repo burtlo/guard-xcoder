@@ -79,7 +79,7 @@ module Guard
     def file_watchers_for_project_watchers(watchers)
 
       watchers.map do |watcher|
-        watchers_for_source_files_in watcher.pattern
+        watchers_for_source_files_in(watcher.pattern)
       end.flatten.compact
 
     end
@@ -88,23 +88,25 @@ module Guard
       
       targets_in_path(pattern).map do |target|
         
+        # TODO: this is currently hard-coded to Debug configuration, though the user can specify Release
+        
         build_action = lambda { "#{target.project.name}//#{target.name}//Debug" }
         
-        project_root_dir = File.join File.dirname(target.project.path), target.name
+        project_root_dir = File.join(File.dirname(target.project.path), target.name)
         
         # Create a watcher for all source build files specified within the target
         
         new_guards = target.sources_build_phase.build_files.map do |file|
           full_source_path = File.join(project_root_dir,file.path)
-          #puts "Source Path: #{full_source_path}"
+          puts "Source Path: #{full_source_path}"
           create_guard_for full_source_path, build_action
         end
         
         # Create a watcher for the pch if one has been specified.
         if target.config('Debug').prefix_header
-          prefix_header_path = File.join File.dirname(target.project.path), target.config('Debug').prefix_header
-          #puts prefix_header_path
-          new_guards << create_guard_for(prefix_header_path)
+          prefix_header_path = File.join(File.dirname(target.project.path), target.config('Debug').prefix_header)
+          puts prefix_header_path
+          new_guards << create_guard_for(prefix_header_path, build_action)
         end
 
         new_guards
@@ -134,7 +136,7 @@ module Guard
       # we expand the pattern to include that.
       
       source_regex = Regexp.new( Regexp.escape(relative_source_path).to_s.gsub(/(?:m?m)$/,'(?:m?m|h)') )
-      ::Guard::Watcher.new source_regex, command
+      ::Guard::Watcher.new(source_regex,command)
     end
   end
 end
