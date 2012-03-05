@@ -7,14 +7,37 @@ module Guard
   
     VERSION = '0.1.0'
     
+    #
+    # By default when a file has changed the builder should build the target.
+    # 
+    # @return [Array<Symbol,String>] a list of the default methods that will
+    #   be executed with the builder object that is found when the appropriate
+    #   file has changed.
     def default_builder_actions
       [ :build ]
     end
     
+    #
+    # By default return the current working directory.
+    # 
+    # @note while this is configurable there will likely be some bizarre complications
+    #   unless the path of the guard is also changed as it usually only notifies
+    #   upon changes that were made locally within the directory and sub-directories.
+    #
+    # @return [Array<String>] the paths that should be searched for projects.
+    # 
     def default_paths
       [ '.' ]
     end
     
+    #
+    # 
+    # @param [Array<Guard::Watcher>] watchers the list of watchers defined in the Guardfile.
+    #   Usually the watchers define a file name or file regex pattern. For xcoder-guard this
+    #   should be the names of the projects/targets.
+    # 
+    # @param [Hash] options addition options to override the default options.
+    # 
     def initialize(watchers=[], options = {})
       @options = {
         :actions => default_builder_actions,
@@ -28,11 +51,16 @@ module Guard
       super
     end
 
+    
     def start
       projects
       UI.info "[Guard::Xcoder] is now monitoring #{projects.map {|p| p.name }.join(", ")}"
     end
 
+    #
+    # Runs all the projects that were found in the projects list and builds all their targets.
+    # @todo this should likely limited only to the projects/targets specified in the watchers.
+    # 
     def run_all
       
       projects.each do |project|
@@ -47,6 +75,12 @@ module Guard
       
     end
    
+    # 
+    # This is called when a file has changed within a project/target. The commands
+    # sent to this method is a path to the builder object that should be generated.
+    # 
+    # The builder that is generated will perform all the default actions or the actions
+    # defined in the options specified.
     # 
     # @param [Array<String>] commands to execute
     #
@@ -63,6 +97,8 @@ module Guard
       
     end
 
+    #
+    # @return [Array<Project>] a list of all the projects found within the specified paths
     def projects
       @project ||= begin
         # TODO: projects found multiple times will be duplicated.
@@ -84,13 +120,25 @@ module Guard
 
     end
     
+    #
+    # Find all the files relevant to the specified file pattern and generate
+    # new watchers out of them.
+    # 
+    # @example project -> target -> config
+    # 
+    #     "TestProject//FirstTarget//Release"
+    # 
     def watchers_for_source_files_in pattern
       
-      targets_in_path(pattern).map do |target|
+      project_name, target_name, config_name = pattern.split("//")
+      
+      # @todo assuming the project has the 'Debug' config when the project should likely be asked.
+      
+      config_name ||= "Debug"
+      
+      targets_for(project_name,target_name).map do |target|
         
-        # TODO: this is currently hard-coded to Debug configuration, though the user can specify Release
-        
-        build_action = lambda { "#{target.project.name}//#{target.name}//Debug" }
+        build_action = lambda { "#{target.project.name}//#{target.name}//#{config_name}" }
         
         project_root_dir = File.join(File.dirname(target.project.path), target.name)
         
@@ -103,8 +151,9 @@ module Guard
         end
         
         # Create a watcher for the pch if one has been specified.
-        if target.config('Debug').prefix_header
-          prefix_header_path = File.join(File.dirname(target.project.path), target.config('Debug').prefix_header)
+        
+        if target.config(config_name).prefix_header
+          prefix_header_path = File.join(File.dirname(target.project.path), target.config(config_name).prefix_header)
           puts prefix_header_path
           new_guards << create_guard_for(prefix_header_path, build_action)
         end
@@ -115,9 +164,8 @@ module Guard
       
     end
 
-    def targets_in_path(pattern)
+    def targets_in_path(project_name,target_name)
 
-      project_name, target_name, config_name = pattern.split("//")
       projects.find_all {|project| project.name == project_name }.map do |project|
         if target_name
           project.targets.find_all {|target| target.name == target_name }
