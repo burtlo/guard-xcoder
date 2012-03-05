@@ -47,4 +47,7 @@ guard 'xcoder' :actions => [ :clean, :build, :package ] do
 end
 ```
 
+## Limitations
 
+Currently `guard-xcoder` does not re-evaluate the file watchers when the project file changes.
+This should hopefully be present in a future release.
